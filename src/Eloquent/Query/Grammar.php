@@ -342,9 +342,39 @@ class Grammar extends BaseGrammar
         return $this->isExpression($value)
             ? $this->getValue($value)
             : (
-                (($v = $this->quoteBinding($value)) !== null)
-                    ? $v
-                    : $this->wrapValue2($value)
+            (($v = $this->quoteBinding($value)) !== null)
+                ? $v
+                : $this->wrapValue2($value)
             );
+    }
+
+    public function normalParameterize(array $values)
+    {
+        return implode(', ', array_map([$this, 'normalParameter'], $values));
+    }
+
+    public function normalParameter($value)
+    {
+        return $this->isExpression($value) ? $this->getValue($value) : '?';
+    }
+
+    public function compileInsert(BaseBuilder $query, array $values)
+    {
+        $table = $this->wrapTable($query->from);
+
+        if (empty($values)) {
+            return "insert into {$table} default values";
+        }
+
+        if (! is_array(reset($values))) {
+            $values = [$values];
+        }
+
+        $columns = $this->columnize(array_keys(reset($values)));
+        $parameters = collect($values)->map(function ($record) {
+            return '('.$this->normalParameterize($record).')';
+        })->implode(', ');
+
+        return "insert into $table ($columns) values $parameters";
     }
 }
